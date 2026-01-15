@@ -7,62 +7,47 @@
     <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-database-compat.js"></script>
     <style>
         :root { --neon: #00ff41; --bg: #050505; }
-        body { background: var(--bg); color: var(--neon); font-family: 'Courier New', monospace; display: flex; align-items: center; justify-content: center; min-height: 100vh; margin: 0; overflow-x: hidden; }
-        .container { border: 2px solid var(--neon); padding: 20px; width: 380px; text-align: center; background: #000; box-shadow: 0 0 20px rgba(0,255,65,0.2); }
+        body { background: var(--bg); color: var(--neon); font-family: 'Courier New', monospace; display: flex; align-items: center; justify-content: center; min-height: 100vh; margin: 0; }
+        .container { border: 2px solid var(--neon); padding: 25px; width: 380px; text-align: center; background: #000; box-shadow: 0 0 20px rgba(0,255,65,0.2); position: relative; }
         
         /* تصميم العجلة */
-        .wheel-box { position: relative; width: 260px; height: 260px; margin: 20px auto; border: 5px solid var(--neon); border-radius: 50%; overflow: hidden; transition: transform 4s cubic-bezier(0.15, 0, 0.15, 1); }
-        .wheel-pointer { position: absolute; top: -10px; left: 50%; transform: translateX(-50%); width: 0; height: 0; border-left: 15px solid transparent; border-right: 15px solid transparent; border-top: 30px solid #ff3e3e; z-index: 10; }
-        .wheel-img { width: 100%; height: 100%; background: conic-gradient(#111 0deg 60deg, #222 60deg 120deg, #111 120deg 180deg, #222 180deg 240deg, #111 240deg 300deg, #222 300deg 360deg); display: flex; align-items: center; justify-content: center; font-weight: bold; }
+        .wheel-container { position: relative; width: 260px; height: 260px; margin: 20px auto; border: 4px solid var(--neon); border-radius: 50%; overflow: hidden; transition: transform 4s cubic-bezier(0.15, 0, 0.15, 1); }
+        .wheel-img { width: 100%; height: 100%; background: conic-gradient(#111 0deg 60deg, #222 60deg 120deg, #111 120deg 180deg, #222 180deg 240deg, #111 240deg 300deg, #222 300deg 360deg); display: flex; align-items: center; justify-content: center; }
+        .pointer { position: absolute; top: -10px; left: 50%; transform: translateX(-50%); width: 0; height: 0; border-left: 15px solid transparent; border-right: 15px solid transparent; border-top: 30px solid #ff3e3e; z-index: 10; }
 
         input, button { width: 100%; padding: 12px; margin: 10px 0; background: #000; border: 1px solid var(--neon); color: #fff; }
         button { background: var(--neon); color: #000; font-weight: bold; cursor: pointer; }
-        button:disabled { background: #222; color: #555; cursor: not-allowed; }
+        button:disabled { background: #222; color: #555; border-color: #333; cursor: not-allowed; }
         .hidden { display: none; }
-        .timer { font-size: 2rem; color: #ff3e3e; margin: 10px 0; }
     </style>
 </head>
 <body>
 
-<div class="container" id="main-box">
-    <h1 style="letter-spacing: 5px;">MAHER</h1>
+<div class="container" id="game-box">
+    <h1>MAHER</h1>
     <div id="status" style="font-size: 0.7rem; color: #666;">STATUS: PROTECTED</div>
 
     <div id="step-pay">
-        <p>بروتوكول العبور: 1 DT</p>
-        <input type="text" id="pay-code" placeholder="رقم العملية (D17 أو Ticket)">
+        <p>أدخل كود 1 DT للتفعيل</p>
+        <input type="text" id="pay-code" placeholder="رقم العملية">
         <button onclick="requestAccess()">تفعيل العجلة</button>
     </div>
 
-    <div id="step-wait" class="hidden">
-        <p>جاري فحص الكود يدوياً...</p>
-        <div style="font-size: 2rem; animation: rotate 2s linear infinite;">⚙️</div>
-    </div>
-
-    <div id="step-profile" class="hidden">
-        <div class="timer" id="timer">15:00</div>
-        <input type="text" id="alias" placeholder="الاسم المستعار">
-        <input type="text" id="phone" placeholder="رقم الهاتف">
-        <button onclick="saveUser()">دخول منطقة السحب</button>
-    </div>
-
     <div id="step-wheel" class="hidden">
-        <div class="wheel-pointer"></div>
-        <div class="wheel-box" id="wheel">
-            <div class="wheel-img">
-                <span id="res-val">ELITE</span>
-            </div>
+        <div class="pointer"></div>
+        <div class="wheel-container" id="wheel-id">
+            <div class="wheel-img"><span id="spin-val">ELITE</span></div>
         </div>
-        <button onclick="spinNow()" id="spin-btn">إطلاق العجلة</button>
-        <p id="win-msg" style="margin-top:10px; font-weight:bold;"></p>
+        <button onclick="startSpin()" id="spin-btn">إطلاق العجلة</button>
+        <h3 id="result-msg"></h3>
     </div>
 </div>
 
 <script>
-    // نظام الحماية من إعادة التحميل
+    // الحماية من إعادة التحميل (Anti-Refresh)
     window.onload = function() {
-        if (localStorage.getItem('hasPlayedToday') === 'true') {
-            document.getElementById('main-box').innerHTML = '<h2 style="color:#ff3e3e;">عذراً!</h2><p>لقد استنفدت محاولتك اليومية. النظام يغلق تلقائياً لمدة 24 ساعة.</p>';
+        if (localStorage.getItem('maher_played') === 'true') {
+            document.getElementById('game-box').innerHTML = '<h2 style="color:#ff3e3e;">تنبيه الأمان</h2><p>لقد استنفدت محاولتك اليومية. عد بعد 24 ساعة.</p>';
         }
     };
 
@@ -72,69 +57,41 @@
     firebase.initializeApp(firebaseConfig);
     const db = firebase.database();
 
-    let uId = "USER_" + Math.floor(Math.random() * 9000);
-    let timerInt;
-
     function requestAccess() {
         const code = document.getElementById('pay-code').value;
-        if(code.length < 5) return alert("كود خاطئ");
-        db.ref('active_requests/' + uId).set({ code: code, approved: false });
+        if(code.length < 5) return alert("الكود غير صالح");
+        
+        // إرسال الكود لـ Firebase
+        db.ref('active_requests').push({ code: code, status: "pending" });
+        
+        // لمحاكاة السرعة في التجربة سيفتح الآن مباشرة، وفي الحقيقة سنفعل "الموافقة" لاحقاً
         document.getElementById('step-pay').classList.add('hidden');
-        document.getElementById('step-wait').classList.remove('hidden');
-
-        db.ref('active_requests/' + uId + '/approved').on('value', (snap) => {
-            if(snap.val() === true) {
-                document.getElementById('step-wait').classList.add('hidden');
-                document.getElementById('step-profile').classList.remove('hidden');
-                startTimer();
-            }
-        });
-    }
-
-    function startTimer() {
-        let sec = 15 * 60;
-        timerInt = setInterval(() => {
-            let m = Math.floor(sec/60); let s = sec%60;
-            document.getElementById('timer').innerText = `${m}:${s < 10 ? '0'+s : s}`;
-            if(sec <= 0) location.reload();
-            sec--;
-        }, 1000);
-    }
-
-    function saveUser() {
-        const a = document.getElementById('alias').value;
-        const p = document.getElementById('phone').value;
-        if(!a || !p) return alert("أكمل البيانات");
-        db.ref('members/' + uId).set({ alias: a, phone: p, win: 0 });
-        clearInterval(timerInt);
-        document.getElementById('step-profile').classList.add('hidden');
         document.getElementById('step-wheel').classList.remove('hidden');
     }
 
-    function spinNow() {
+    function startSpin() {
         const btn = document.getElementById('spin-btn');
-        const wheel = document.getElementById('wheel');
-        btn.disabled = true;
+        const wheel = document.getElementById('wheel-id');
+        
+        btn.disabled = true; // منع الضغط المتكرر أثناء الدوران
 
-        let randDeg = Math.floor(Math.random() * 3600) + 720; 
-        wheel.style.transform = `rotate(${randDeg}deg)`;
+        let deg = Math.floor(Math.random() * 3600) + 1000;
+        wheel.style.transform = `rotate(${deg}deg)`;
 
         setTimeout(() => {
-            let points = [10, 50, 100, 200, 500, 0][Math.floor(Math.random() * 6)];
-            document.getElementById('res-val').innerText = points + " PTS";
-            document.getElementById('win-msg').innerText = "مبروك! ربحت " + points + " نقطة";
+            let pts = [10, 20, 50, 100, 200, 0][Math.floor(Math.random() * 6)];
+            document.getElementById('spin-val').innerText = pts + " PTS";
+            document.getElementById('result-msg').innerText = "مبروك! ربحت " + pts + " نقطة";
             
-            // حفظ النتيجة وتفعيل الحماية
-            db.ref('members/' + uId + '/win').set(points);
-            localStorage.setItem('hasPlayedToday', 'true'); // تفعيل منع إعادة المحاولة
+            // قفل الحماية: تخزين أن المستخدم لعب بالفعل
+            localStorage.setItem('maher_played', 'true');
             
-            alert("تم تسجيل نقاطك بنجاح. عد غداً لمحاولة جديدة!");
+            // تسجيل النتيجة في Firebase لتعرف أنت كم ربح
+            db.ref('winners').push({ points: pts, time: new Date().toLocaleString() });
+            
+            alert("تم حفظ محاولتك. النظام مغلق الآن.");
         }, 4100);
     }
 </script>
-
-<style>
-    @keyframes rotate { from {transform: rotate(0deg);} to {transform: rotate(360deg);} }
-</style>
 </body>
 </html>
