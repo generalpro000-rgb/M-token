@@ -2,131 +2,61 @@
 <html lang="ar" dir="rtl">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MAHER | THE VAULT PROTOCOL</title>
+    <title>MAHER | THE VAULT</title>
     <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-database-compat.js"></script>
     <style>
-        :root { --neon: #00ff41; --bg: #050505; --red: #ff3e3e; }
-        body { background: var(--bg); color: var(--neon); font-family: 'Courier New', monospace; margin: 0; display: flex; align-items: center; justify-content: center; min-height: 100vh; text-align: center; }
-        .vault-container { border: 2px solid var(--neon); padding: 25px; width: 90%; max-width: 400px; box-shadow: 0 0 15px rgba(0,255,65,0.2); }
-        input, select { background: #000; border: 1px solid var(--neon); color: #fff; padding: 10px; width: 100%; margin: 10px 0; box-sizing: border-box; }
-        button { background: var(--neon); color: #000; border: none; padding: 12px; width: 100%; font-weight: bold; cursor: pointer; margin-top: 10px; }
+        body { background: #050505; color: #00ff41; font-family: monospace; text-align: center; display: flex; align-items: center; justify-content: center; min-height: 100vh; margin: 0; }
+        .box { border: 2px solid #00ff41; padding: 20px; width: 350px; }
+        input, button { width: 100%; padding: 10px; margin: 10px 0; background: #000; border: 1px solid #00ff41; color: #fff; }
+        button { background: #00ff41; color: #000; font-weight: bold; cursor: pointer; }
         .hidden { display: none; }
-        .timer { font-size: 2.5rem; color: var(--red); margin: 10px 0; }
-        .status-bar { font-size: 0.7rem; color: #666; margin-bottom: 20px; text-transform: uppercase; }
     </style>
 </head>
 <body>
 
-<div class="vault-container">
-    <h1 style="letter-spacing: 5px;">MAHER</h1>
-    <div class="status-bar" id="sys-msg">Waiting for Access Key...</div>
-
+<div class="box">
+    <h1>MAHER PROTOCOL</h1>
+    
     <div id="step-1">
-        <p>بروتوكول الدخول: 1 DT</p>
-        <select id="pay-type">
-            <option value="D17">D17 Transfer</option>
-            <option value="Recharge">Ticket Recharge</option>
-        </select>
-        <input type="text" id="pay-code" placeholder="أدخل رقم العملية أو الكود">
-        <button onclick="requestAccess()">إرسال للمراجعة</button>
-    </div>
-
-    <div id="step-wait" class="hidden">
-        <p style="color: #fff;">جاري مراجعة الكود من قبل النظام...</p>
-        <p>يرجى الانتظار، سيفتح الحساب تلقائياً عند التأكد من الدفع.</p>
-        <div class="loader">⚙️ التحقق من السيولة...</div>
+        <p>أدخل كود 1 DT (D17 أو شحن)</p>
+        <input type="text" id="code" placeholder="أدخل الكود هنا">
+        <button onclick="sendData()">إرسال وتفعيل</button>
     </div>
 
     <div id="step-2" class="hidden">
-        <div class="timer" id="timer">15:00</div>
-        <input type="text" id="alias" placeholder="الاسم المستعار">
-        <input type="text" id="phone" placeholder="رقم الهاتف">
-        <button onclick="activateVault()">دخول المخزن</button>
-    </div>
-
-    <div id="step-3" class="hidden">
-        <div style="display:flex; justify-content:space-around; margin-bottom:20px; font-size:0.8rem;">
-            <div>رصيد: <span id="balance">1.000</span> DT</div>
-            <div>نقاط: <span id="points">0</span></div>
-        </div>
-        <div id="game-ui">
-            <div id="stream" style="font-size: 2rem; background:#111; padding:15px; margin:10px 0;">000000</div>
-            <button onclick="play()">تجميد التشفير</button>
-        </div>
+        <h2>تم التفعيل</h2>
+        <p>نقاطك: <span id="pts">0</span></p>
+        <button onclick="addPoints()">العب الآن واربح نقاط</button>
     </div>
 </div>
 
 <script>
-    // الإعدادات المربوطة برابطك الجديد
+    // الإعدادات مأخوذة من صورتك مباشرة
     const firebaseConfig = {
-        databaseURL: "https://m-token-5ce65-default-rtdb.europe-west1.firebasedatabase.app/",
-        projectId: "m-token-5ce65",
+        databaseURL: "https://m-token-5ce65-default-rtdb.europe-west1.firebasedatabase.app/"
     };
     firebase.initializeApp(firebaseConfig);
     const db = firebase.database();
 
-    let uId = "";
-    let timer;
+    function sendData() {
+        const c = document.getElementById('code').value;
+        if(c.length < 4) return alert("الكود قصير");
 
-    // 1. إرسال الكود والانتظار
-    function requestAccess() {
-        const code = document.getElementById('pay-code').value;
-        if(code.length < 5) return alert("الكود غير صالح");
-
-        uId = "User_" + Math.floor(Math.random() * 10000);
-        db.ref('requests/' + uId).set({
-            code: code,
-            type: document.getElementById('pay-type').value,
-            approved: false // افتراضياً غير مقبول
+        // سيقوم هذا السطر بإنشاء البيانات فوراً في Firebase التي كانت فارغة في صورتك
+        db.ref('test_entries').push({
+            code_sent: c,
+            status: "active"
         });
 
         document.getElementById('step-1').classList.add('hidden');
-        document.getElementById('step-wait').classList.remove('hidden');
-
-        // مراقبة قاعدة البيانات: إذا قمت أنت بتغيير approved إلى true سيفتح الموقع
-        db.ref('requests/' + uId + '/approved').on('value', (snapshot) => {
-            if(snapshot.val() === true) {
-                document.getElementById('step-wait').classList.add('hidden');
-                document.getElementById('step-2').classList.remove('hidden');
-                startTimer();
-            }
-        });
+        document.getElementById('step-2').classList.remove('hidden');
     }
 
-    function startTimer() {
-        let sec = 15 * 60;
-        timer = setInterval(() => {
-            let m = Math.floor(sec / 60);
-            let s = sec % 60;
-            document.getElementById('timer').innerText = `${m}:${s < 10 ? '0'+s : s}`;
-            if(sec <= 0) { clearInterval(timer); location.reload(); }
-            sec--;
-        }, 1000);
-    }
-
-    function activateVault() {
-        const a = document.getElementById('alias').value;
-        const p = document.getElementById('phone').value;
-        if(!a || !p) return alert("بيانات ناقصة");
-        
-        db.ref('users/' + uId).set({ alias: a, phone: p, points: 0 });
-        clearInterval(timer);
-        document.getElementById('step-2').classList.add('hidden');
-        document.getElementById('step-3').classList.remove('hidden');
-    }
-
-    function play() {
-        let d = document.getElementById('stream');
-        let count = 0;
-        let si = setInterval(() => { d.innerText = Math.floor(Math.random()*900000); count++; }, 50);
-        setTimeout(() => {
-            clearInterval(si);
-            let p = Math.floor(Math.random()*100);
-            d.innerText = "+" + p + " POINTS";
-            document.getElementById('points').innerText = p;
-        }, 1500);
+    function addPoints() {
+        let p = Math.floor(Math.random() * 100);
+        document.getElementById('pts').innerText = p;
+        alert("ربحت " + p + " نقطة!");
     }
 </script>
 </body>
