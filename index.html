@@ -2,81 +2,55 @@
 <html lang="ar" dir="rtl">
 <head>
     <meta charset="UTF-8">
-    <title>MAHER | THE VAULT</title>
+    <title>MAHER | ELITE WHEEL</title>
     <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-database-compat.js"></script>
     <style>
-        body { background: #000; color: #00ff41; font-family: 'Courier New', monospace; display: flex; align-items: center; justify-content: center; min-height: 100vh; margin: 0; text-align: center; }
-        .vault { border: 2px solid #00ff41; padding: 30px; width: 350px; box-shadow: 0 0 20px rgba(0,255,65,0.2); }
-        input, button { width: 100%; padding: 12px; margin: 10px 0; background: #000; border: 1px solid #00ff41; color: #fff; font-family: inherit; }
-        button { background: #00ff41; color: #000; font-weight: bold; cursor: pointer; transition: 0.3s; }
-        button:hover { background: #000; color: #00ff41; }
+        :root { --neon: #00ff41; --bg: #050505; }
+        body { background: var(--bg); color: var(--neon); font-family: 'Courier New', monospace; display: flex; align-items: center; justify-content: center; min-height: 100vh; margin: 0; overflow-x: hidden; }
+        .container { border: 2px solid var(--neon); padding: 20px; width: 380px; text-align: center; background: #000; box-shadow: 0 0 20px rgba(0,255,65,0.2); }
+        
+        /* تصميم العجلة */
+        .wheel-box { position: relative; width: 260px; height: 260px; margin: 20px auto; border: 5px solid var(--neon); border-radius: 50%; overflow: hidden; transition: transform 4s cubic-bezier(0.15, 0, 0.15, 1); }
+        .wheel-pointer { position: absolute; top: -10px; left: 50%; transform: translateX(-50%); width: 0; height: 0; border-left: 15px solid transparent; border-right: 15px solid transparent; border-top: 30px solid #ff3e3e; z-index: 10; }
+        .wheel-img { width: 100%; height: 100%; background: conic-gradient(#111 0deg 60deg, #222 60deg 120deg, #111 120deg 180deg, #222 180deg 240deg, #111 240deg 300deg, #222 300deg 360deg); display: flex; align-items: center; justify-content: center; font-weight: bold; }
+
+        input, button { width: 100%; padding: 12px; margin: 10px 0; background: #000; border: 1px solid var(--neon); color: #fff; }
+        button { background: var(--neon); color: #000; font-weight: bold; cursor: pointer; }
+        button:disabled { background: #222; color: #555; cursor: not-allowed; }
         .hidden { display: none; }
-        #status { font-size: 0.8rem; color: #ff3e3e; margin-bottom: 10px; }
+        .timer { font-size: 2rem; color: #ff3e3e; margin: 10px 0; }
     </style>
 </head>
 <body>
 
-<div class="vault">
-    <h1>MAHER</h1>
-    <div id="status">STATUS: LOCKED</div>
+<div class="container" id="main-box">
+    <h1 style="letter-spacing: 5px;">MAHER</h1>
+    <div id="status" style="font-size: 0.7rem; color: #666;">STATUS: PROTECTED</div>
 
     <div id="step-pay">
-        <p>أدخل كود المرور (D17 أو Ticket)</p>
-        <input type="text" id="user-code" placeholder="أدخل الكود هنا">
-        <button onclick="requestAccess()">طلب تفعيل</button>
+        <p>بروتوكول العبور: 1 DT</p>
+        <input type="text" id="pay-code" placeholder="رقم العملية (D17 أو Ticket)">
+        <button onclick="requestAccess()">تفعيل العجلة</button>
     </div>
 
     <div id="step-wait" class="hidden">
-        <p>جاري فحص الكود من قبل النظام...</p>
-        <div style="animation: pulse 1s infinite;">⚙️ مراجعة يدوية...</div>
+        <p>جاري فحص الكود يدوياً...</p>
+        <div style="font-size: 2rem; animation: rotate 2s linear infinite;">⚙️</div>
     </div>
 
-    <div id="step-vault" class="hidden">
-        <p>مرحباً بك في النخبة</p>
-        <div id="display" style="font-size: 2rem; margin: 20px;">000000</div>
-        <button onclick="play()">تجميد التشفير</button>
+    <div id="step-profile" class="hidden">
+        <div class="timer" id="timer">15:00</div>
+        <input type="text" id="alias" placeholder="الاسم المستعار">
+        <input type="text" id="phone" placeholder="رقم الهاتف">
+        <button onclick="saveUser()">دخول منطقة السحب</button>
     </div>
-</div>
 
-<script>
-    const firebaseConfig = {
-        databaseURL: "https://m-token-5ce65-default-rtdb.europe-west1.firebasedatabase.app/"
-    };
-    firebase.initializeApp(firebaseConfig);
-    const db = firebase.database();
-
-    let myId = "User_" + Math.floor(Math.random() * 10000);
-
-    function requestAccess() {
-        const c = document.getElementById('user-code').value;
-        if(c.length < 5) return alert("الكود قصير جداً");
-
-        // إرسال الطلب وحالته "false" (غير مقبول)
-        db.ref('requests/' + myId).set({
-            code: c,
-            approved: false
-        });
-
-        document.getElementById('step-pay').classList.add('hidden');
-        document.getElementById('step-wait').classList.remove('hidden');
-
-        // الاستماع للتغيير: بمجرد أن تغيرها أنت لـ true في Firebase سيفتح الموقع تلقائياً
-        db.ref('requests/' + myId + '/approved').on('value', (snap) => {
-            if(snap.val() === true) {
-                document.getElementById('step-wait').classList.add('hidden');
-                document.getElementById('step-vault').classList.remove('hidden');
-                document.getElementById('status').innerText = "STATUS: GRANTED";
-                document.getElementById('status').style.color = "#00ff41";
-            }
-        });
-    }
-
-    function play() {
-        let d = document.getElementById('display');
-        let spin = setInterval(() => { d.innerText = Math.floor(Math.random()*900000); }, 50);
-        setTimeout(() => { clearInterval(spin); d.innerText = "SUCCESS: +100 PTS"; }, 1500);
-    }
-</script>
-</body>
-</html>
+    <div id="step-wheel" class="hidden">
+        <div class="wheel-pointer"></div>
+        <div class="wheel-box" id="wheel">
+            <div class="wheel-img">
+                <span id="res-val">ELITE</span>
+            </div>
+        </div>
+        <button onclick="spinNow()" id="spin-btn">إ
