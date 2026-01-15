@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MAHER | THE VAULT</title>
+    <style>
+        :root { --main-color: #00ff41; --bg-color: #050505; --accent-red: #ff3e3e; }
+        body { background-color: var(--bg-color); color: var(--main-color); font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; display: flex; align-items: center; justify-content: center; min-height: 100vh; margin: 0; overflow-x: hidden; }
+        .container { border: 2px solid var(--main-color); padding: 30px; width: 90%; max-width: 500px; box-shadow: 0 0 15px rgba(0, 255, 65, 0.2); text-align: center; }
+        .timer { font-size: 2.5rem; color: var(--accent-red); font-family: monospace; margin: 15px 0; text-shadow: 0 0 10px var(--accent-red); }
+        input, select { background: transparent; border: 1px solid var(--main-color); color: white; padding: 12px; width: 100%; margin: 10px 0; box-sizing: border-box; }
+        button { background: var(--main-color); color: black; border: none; padding: 15px 30px; cursor: pointer; font-weight: bold; width: 100%; margin-top: 10px; text-transform: uppercase; }
+        .hidden { display: none; }
+        .vault-status { border-top: 1px dashed var(--main-color); margin-top: 20px; padding-top: 10px; font-size: 0.9rem; }
+        /* تصميم اللعبة */
+        #game-area { padding: 20px; border: 1px solid #333; margin-top: 20px; }
+        .number-stream { font-size: 2rem; letter-spacing: 5px; height: 50px; overflow: hidden; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1 style="letter-spacing: 5px;">MAHER</h1>
+    <p id="status-text">بروتوكول النخبة: الربح لمن يستحق</p>
+
+    <div id="step-payment">
+        <label>اختر وسيلة شحن المفتاح (1 DT):</label>
+        <select id="pay-method">
+            <option value="d17">تحويل D17</option>
+            <option value="recharge">Ticket Recharge (Code)</option>
+        </select>
+        <input type="text" id="pay-ref" placeholder="أدخل رقم المعاملة أو كود الشحن">
+        <button onclick="verifyPayment()">تفعيل مفتاح الدخول</button>
+    </div>
+
+    <div id="step-profile" class="hidden">
+        <div class="timer" id="timer">15:00</div>
+        <p>قم بتأمين بياناتك فوراً</p>
+        <input type="text" placeholder="الاسم المستعار (Alias)">
+        <input type="text" placeholder="رقم الهاتف (للسحب عبر D17)">
+        <button onclick="goToVault()">تأمين المحفظة</button>
+    </div>
+
+    <div id="step-vault" class="hidden">
+        <div class="vault-status">
+            <span>الرصيد: <strong id="balance">1.000</strong> DT</span> | 
+            <span>النقاط: <strong id="points">0</strong></span>
+        </div>
+        <div id="game-area">
+            <p>لعبة اليوم: فك تشفير البيانات</p>
+            <div class="number-stream" id="stream">000000</div>
+            <button style="background: white;" onclick="playGame()">تجميد التشفير</button>
+        </div>
+        <p style="font-size: 0.7rem; color: #666; margin-top: 10px;">كل 1000 نقطة = 1 مليم</p>
+    </div>
+</div>
+
+<script>
+    let timeLeft = 15 * 60;
+    let points = 0;
+    let timerInterval;
+
+    function verifyPayment() {
+        const ref = document.getElementById('pay-ref').value;
+        if(ref.length < 8) { alert("المعطيات غير كافية"); return; }
+        
+        document.getElementById('step-payment').classList.add('hidden');
+        document.getElementById('step-profile').classList.remove('hidden');
+        startTimer();
+    }
+
+    function startTimer() {
+        timerInterval = setInterval(() => {
+            let min = Math.floor(timeLeft / 60);
+            let sec = timeLeft % 60;
+            document.getElementById('timer').innerText = `${min}:${sec < 10 ? '0'+sec : sec}`;
+            if (timeLeft <= 0) { clearInterval(timerInterval); alert("انتهى الوقت!"); location.reload(); }
+            timeLeft--;
+        }, 1000);
+    }
+
+    function goToVault() {
+        clearInterval(timerInterval);
+        document.getElementById('step-profile').classList.add('hidden');
+        document.getElementById('step-vault').classList.remove('hidden');
+        document.getElementById('status-text').innerText = "تم الولوج للمخزن الآمن";
+        setInterval(updateStream, 100); // بدء حركة أرقام اللعبة
+    }
+
+    function updateStream() {
+        document.getElementById('stream').innerText = Math.floor(Math.random() * 900000) + 100000;
+    }
+
+    function playGame() {
+        const win = Math.random() > 0.5; // نسبة ربح وهمية 50%
+        if(win) {
+            points += 200;
+            alert("تم فك تشفير بنجاح: +200 نقطة");
+        } else {
+            alert("فشل التشفير. حاول غداً.");
+        }
+        document.getElementById('points').innerText = points;
+        document.getElementById('game-area').innerHTML = "<h3>عد غداً للمحاولة التالية</h3>";
+    }
+</script>
+
+</body>
+</html>
